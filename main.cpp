@@ -11,6 +11,13 @@ constexpr size_t index(const size_t i, const size_t j, const size_t n) noexcept 
 }
 
 class Multiplier {
+public:
+    explicit Multiplier(const size_t size) : size(size) {
+        first.resize(size * size);
+        second.resize(size * size);
+        output.assign(size * size, 0.0);
+    }
+
 protected:
     Matrix first{}, second{}, output{};
     size_t size{};
@@ -26,19 +33,25 @@ protected:
         }
     }
 
-    virtual bool read(const std::string &) =0;
+    virtual bool readA(const std::string &) =0;
+
+    virtual bool readB(const std::string &) =0;
+
+    bool read(const std::string &filenameA, const std::string &filenameB) {
+        return readA(filenameA) && readB(filenameB);
+    }
 
     virtual bool write(const std::string &) =0;
 
 public:
     virtual ~Multiplier() = default;
 
-    void measure(const std::string &infile, const std::string &outfile) {
-        std::cout << "Measuring duration for " << infile << "\n";
+    void measure(const std::string &infileA, const std::string &infileB, const std::string &outfile) {
+        std::cout << "Measuring duration for " << infileA << " and " << infileB << "\n";
 
         const auto readStart = std::chrono::high_resolution_clock::now();
-        if (!read(infile)) {
-            std::cout << "Error reading " << infile << "\n";
+        if (!read(infileA, infileB)) {
+            std::cout << "Error reading " << infileA << " or " << infileB << "\n";
             return;
         }
         const auto readEnd = std::chrono::high_resolution_clock::now();
@@ -67,26 +80,36 @@ public:
 };
 
 class TextMultiplier : public Multiplier {
-    bool read(const std::string &filename) override {
+public:
+    explicit TextMultiplier(const size_t size)
+        : Multiplier(size) {
+    }
+
+private:
+    bool readA(const std::string &filename) override {
         std::ifstream fin(filename);
         if (!fin) {
             std::cout << "Can't open " << filename << std::endl;
             return false;
         }
-        fin >> size;
-        const auto elementCount = size * size;
-        first.resize(elementCount);
-        second.resize(elementCount);
-        output.assign(elementCount, 0.0);
-        for (auto i = 0; i < elementCount; ++i) {
+        for (auto i = 0; i < size * size; ++i) {
             fin >> first[i];
         }
-        for (auto i = 0; i < elementCount; ++i) {
-            fin >> second[i];
-        }
-
         return true;
     }
+
+    bool readB(const std::string &filename) override {
+        std::ifstream fin(filename);
+        if (!fin) {
+            std::cout << "Can't open " << filename << std::endl;
+            return false;
+        }
+        for (auto i = 0; i < size * size; ++i) {
+            fin >> second[i];
+        }
+        return true;
+    }
+
 
     bool write(const std::string &filename) override {
         std::ofstream fout(filename);
@@ -94,8 +117,6 @@ class TextMultiplier : public Multiplier {
             std::cout << "Can't open " << filename << std::endl;
             return false;
         }
-
-        fout << size << "\n";
         for (auto i = 0; i < size; ++i) {
             for (auto j = 0; j < size; ++j) {
                 fout << output[index(i, j, size)] << " ";
@@ -108,22 +129,31 @@ class TextMultiplier : public Multiplier {
 };
 
 class BinaryMultiplier : public Multiplier {
-    bool read(const std::string &filename) override {
+public:
+    explicit BinaryMultiplier(const size_t size)
+        : Multiplier(size) {
+    }
+
+private:
+    bool readA(const std::string &filename) override {
         std::cout << filename << "\n";
         std::ifstream fin(filename, std::ios::binary);
         if (!fin) {
             std::cout << "Can't open " << filename << std::endl;
             return false;
         }
+        fin.read(reinterpret_cast<char *>(first.data()), sizeof(double) * size * size);
+        return true;
+    }
 
-        fin.read(reinterpret_cast<char *>(&size), sizeof(size_t));
-        const auto elementCount = size * size;
-        first.resize(elementCount);
-        second.resize(elementCount);
-        output.assign(elementCount, 0.0);
-        fin.read(reinterpret_cast<char *>(first.data()), sizeof(double) * elementCount);
-        fin.read(reinterpret_cast<char *>(second.data()), sizeof(double) * elementCount);
-
+    bool readB(const std::string &filename) override {
+        std::cout << filename << "\n";
+        std::ifstream fin(filename, std::ios::binary);
+        if (!fin) {
+            std::cout << "Can't open " << filename << std::endl;
+            return false;
+        }
+        fin.read(reinterpret_cast<char *>(first.data()), sizeof(double) * size * size);
         return true;
     }
 
@@ -133,26 +163,27 @@ class BinaryMultiplier : public Multiplier {
             std::cout << "Can't open " << filename << std::endl;
             return false;
         }
-
-        fout.write(reinterpret_cast<char *>(&size), sizeof(size_t));
         fout.write(reinterpret_cast<char *>(output.data()), sizeof(double) * size * size);
-
         return true;
     }
 };
 
 int main() {
     const std::string data_dir{"./data/"};
-    for (const auto &dimension: {5, 10, 50, 100, 500, 1'000, 5'000}) {
+    for (const size_t &dimension: {5, 10, 50, 100, 500, 1'000, 5'000}) {
         const auto file = data_dir + std::to_string(dimension);
-        const std::string infile_txt{file + ".txt"};
-        const std::string infile_bin{file + ".bin"};
-        const std::string outfile_txt{infile_txt + ".out"};
-        const std::string outfile_bin{infile_bin + ".out"};
-        TextMultiplier tex{};
-        BinaryMultiplier bin{};
-        tex.measure(infile_txt, outfile_txt);
-        bin.measure(infile_bin, outfile_bin);
+        const std::string infileA_txt{file + "A.txt"};
+        const std::string infileA_bin{file + "A.bin"};
+        const std::string infileB_txt{file + "B.txt"};
+        const std::string infileB_bin{file + "B.bin"};
+        const std::string outfile_txt{file + ".txt.out"};
+        const std::string outfile_bin{file + ".bin.out"};
+        TextMultiplier tex{dimension};
+        BinaryMultiplier bin{dimension};
+        std::cout << "Text with " << dimension << " dimensions\n";
+        tex.measure(infileA_txt, infileB_txt, outfile_txt);
+        std::cout << "Binary with " << dimension << " dimensions\n";
+        bin.measure(infileA_bin, infileB_bin, outfile_bin);
     }
     return 0;
 }

@@ -1,7 +1,8 @@
 # ! python3
-import struct
+import os
+
 import numpy as np
-import tqdm as tqdm
+import tqdm
 
 
 def generate(count):
@@ -9,33 +10,34 @@ def generate(count):
         np.random.rand(count, count)
 
 
-def write_text(filename, first, second):
-    row_count = first.shape[0]
-
+def write_text(filename, matrix):
     with open(filename, 'w') as fout:
-        fout.write(f'{row_count} \n')
-
-        for row in first:
-            fout.write(" ".join(map(str, row)) + "\n")
-
-        for row in second:
+        for row in matrix:
             fout.write(" ".join(map(str, row)) + "\n")
 
 
-def write_binary(filename, first, second):
-    row_count = first.shape[0]
-
+def write_binary(filename, matrix):
     with open(filename, "wb") as fout:
-        fout.write(struct.pack("Q", row_count))
-        fout.write(first.astype(np.float64).tobytes())
-        fout.write(second.astype(np.float64).tobytes())
+        fout.write(matrix.astype(np.float64).tobytes())
 
 
 def main():
-    for dim in tqdm.tqdm([5, 10, 50, 100, 500, 1000, 5000]):
+    data_dir = "./data/"
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+
+    dimensions = [5, 10, 50, 100, 500, 1000, 5000]
+
+    for dim in tqdm.tqdm(dimensions):
         first, second = generate(dim)
-        write_text(f"./data/{dim}.txt", first, second)
-        write_binary(f"./data/{dim}.bin", first, second)
+
+        file_base = os.path.join(data_dir, str(dim))
+
+        write_text(f"{file_base}A.txt", first)
+        write_text(f"{file_base}B.txt", second)
+
+        write_binary(f"{file_base}A.bin", first)
+        write_binary(f"{file_base}B.bin", second)
 
 
 if __name__ == "__main__":
