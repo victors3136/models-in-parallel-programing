@@ -4,19 +4,20 @@
 #include <chrono>
 #include <iomanip>
 #include <random>
+#include <string.h>
 
-double randomDouble() {
+static double randomDouble() {
     static std::random_device random_device{};
     static std::mt19937 generator{random_device()};
     static std::uniform_real_distribution distribution{0.0, 1.0};
     return distribution(generator);
 }
 
-bool isBinaryFile(const std::string &filename) {
-    if (filename.length() >= 4) {
-        return filename.compare(filename.length() - 4, 4, ".bin") == 0;
-    }
-    return false;
+static bool isBinaryFile(const std::string &filename) {
+    static constexpr auto binary_file_ext = ".bin";
+    static const auto len = strlen(binary_file_ext);
+    return filename.length() >= len
+           && filename.compare(filename.length() - len, len, binary_file_ext) == 0;
 }
 
 class SquareMatrix : protected std::vector<double> {
@@ -25,40 +26,22 @@ class SquareMatrix : protected std::vector<double> {
 
     const size_t matrix_dimension{};
 
-    static SquareMatrix multiplySequential(const SquareMatrix &first, const SquareMatrix &second) {
-        if (first.matrix_dimension != second.matrix_dimension) {
-            throw std::runtime_error{
-                "Invalid multiplication between square matrices of size "
-                + std::to_string(first.matrix_dimension) + " and "
-                + std::to_string(second.matrix_dimension)
-            };
-        }
-        const auto dim = first.matrix_dimension;
-        SquareMatrix result{dim};
-        result.assign(dim * dim, 0.0);
-        for (auto i = 0ul; i < dim; ++i) {
-            for (auto k = 0ul; k < dim; ++k) {
-                for (auto j = 0ul; j < dim; ++j) {
-                    result[i * dim + j] += first[i * dim + k] * second[k * dim + j];
-                }
+    std::vector<double> transpose() const& noexcept {
+        std::vector<double> transposed_matrix(matrix_dimension * matrix_dimension);
+        for (auto i = 0ull; i < matrix_dimension; ++i) {
+            for (auto j = 0ull; j < matrix_dimension; ++j) {
+                transposed_matrix[j * matrix_dimension + i] = (*this)[i * matrix_dimension + j];
             }
         }
-        return result;
+        return transposed_matrix;
     }
 
     static SquareMatrix multiplySequentialWithTranspose(
         const SquareMatrix &A,
-        const SquareMatrix &B) {
-        const size_t dim = A.matrix_dimension;
+        const SquareMatrix &B) noexcept {
+        const auto dim = A.matrix_dimension;
 
-        SquareMatrix B_transpose{dim};
-        B_transpose.assign(dim * dim, 0.0);
-
-        for (auto i = 0ull; i < dim; ++i) {
-            for (auto j = 0ull; j < dim; ++j) {
-                B_transpose[j * dim + i] = B[i * dim + j];
-            }
-        }
+        const auto B_transpose = B.transpose();
 
         SquareMatrix C{dim};
         C.assign(dim * dim, 0.0);
@@ -157,7 +140,7 @@ public:
     void writeTo(const std::string &filename) const {
         if (isBinaryFile(filename)) {
             std::ofstream fout{filename, std::ios::binary};
-            fout.write(reinterpret_cast<const char *>(data()), sizeof(double) * matrix_dimension * matrix_dimension);
+            fout.write(reinterpret_cast<const char *>(data()), sizeof(double) * size());
             fout.close();
         } else {
             std::ofstream fout{filename};
@@ -166,6 +149,21 @@ public:
             }
             fout.close();
         }
+    }
+
+    bool operator==(const SquareMatrix &other) const noexcept {
+        if (size() != other.size()) return false;
+        for (auto i = 0ull; i < size(); ++i) {
+            if (constexpr auto epsilon = 1e-10;
+                std::abs((*this)[i] - other[i]) > epsilon) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool operator!=(const SquareMatrix &other) const {
+        return !(other == *this);
     }
 };
 
