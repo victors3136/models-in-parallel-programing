@@ -3,11 +3,12 @@ import subprocess
 import os
 
 def run_benchmark():
-    if len(sys.argv) != 2:
-        print("usage: benchmark <N>")
+    if len(sys.argv) != 3:
+        print("usage: benchmark <program-name> <N>")
         sys.exit(1)
 
-    n_value = sys.argv[1]
+    program_name = sys.argv[1]
+    n_value = sys.argv[2]
     directory = "data"
     fmt = "bin"
 
@@ -15,7 +16,7 @@ def run_benchmark():
     file_b = os.path.join(directory, f"{n_value}.B.{fmt}")
     file_out = os.path.join(directory, f"{n_value}.out.{fmt}")
 
-    command = ["./sequential", n_value, file_a, file_b, file_out]
+    command = [program_name, n_value, file_a, file_b, file_out]
 
     try:
         # Dry run - is responsible for making sure the files are created before the actual benchmarks
