@@ -28,7 +28,7 @@ def run_benchmark():
     except subprocess.CalledProcessError as e:
         print(f"An error occurred while running the benchmark: {e}")
     except FileNotFoundError:
-        print("Error: The executable './sequential' was not found.")
+        print(f"Error: The executable '{program_name}' was not found.")
 
 if __name__ == "__main__":
     run_benchmark()
