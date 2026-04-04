@@ -96,7 +96,7 @@ class SquareMatrix {
     
 public:
     double operator[](const size_t index) const {
-        if(index < 0 || index >= data.size()) {
+        if(index >= data.size()) {
             throw std::runtime_error("Index " + std::to_string(index) + " invalid for matrix of dimension " + std::to_string(data.size()));
         }
         return data[index];
