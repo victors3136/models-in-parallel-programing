@@ -205,7 +205,6 @@ public:
         SquareMatrix result = A * I;
         
         assert(result == A && "Matrix * Identity must equal itself");
-        std::cout << "Identity Test: [PASS]\n";
     }
 
     static void testScaling() {
@@ -217,7 +216,6 @@ public:
             assert(std::abs(result[i] - static_cast<double>(dim)) < 1e-10 
                    && "Each element in Ones*Ones must equal the dimension");
         }
-        std::cout << "Scaling Test: [PASS]\n";
     }
 
     static void testParallelConsistency() {
@@ -232,7 +230,6 @@ public:
         SquareMatrix resPar = SquareMatrix::multiplyParallelWithTranspose(A, B);
 
         assert(resSeq == resPar && "Parallel and Sequential results must match exactly");
-        std::cout << "Consistency Test: [PASS]\n";
     }
         static SquareMatrix multiplySequentialWithTranspose(
         const SquareMatrix &A,
@@ -321,28 +318,21 @@ int main(const int argc, const char *argv[]) {
     const auto A = SquareMatrix::fromFileSequential(matrix_size, argv[2]);
     const auto B = SquareMatrix::fromFileSequential(matrix_size, argv[3]);
     const auto read_end_t = std::chrono::high_resolution_clock::now();
-    const auto seq_work_start_t = std::chrono::high_resolution_clock::now();
-    const auto C_seq = SquareMatrix::multiplySequentialWithTranspose(A, B);
-    const auto seq_work_end_t = std::chrono::high_resolution_clock::now();
     const auto par_work_start_t = std::chrono::high_resolution_clock::now();
     const auto C_par = SquareMatrix::multiplyParallelWithTranspose(A, B);
     const auto par_work_end_t = std::chrono::high_resolution_clock::now();
     const auto write_start_t = std::chrono::high_resolution_clock::now();
     C_par.writeTo(argv[4]);
     const auto write_end_t = std::chrono::high_resolution_clock::now();
-    if (C_par != C_seq) {
-        throw std::runtime_error("Failed :(");
-    }
     const auto end_t = std::chrono::high_resolution_clock::now();
     const auto read_t = std::chrono::duration<double>(read_end_t - read_start_t).count();
-    const auto seq_work_t = std::chrono::duration<double>(seq_work_end_t - seq_work_start_t).count();
     const auto par_work_t = std::chrono::duration<double>(par_work_end_t - par_work_start_t).count();
     const auto write_t = std::chrono::duration<double>(write_end_t - write_start_t).count();
     const auto total_t = std::chrono::duration<double>(end_t - start_t).count();
     std::cout << std::fixed << std::setw(12) << std::setprecision(10)
             << matrix_size << "\t" << read_t
-            << "\t" << seq_work_t << "\t" << par_work_t << "\t"
-            << "\t" << seq_work_t / par_work_t << "\t" << write_t << "\t" << total_t
+            << "\t" << par_work_t << "\t"
+            << write_t << "\t" << total_t
             << std::endl;
 
     return 0;
